@@ -1,22 +1,26 @@
-import TelegramBot from "node-telegram-bot-api";
-import dotenv from "dotenv";
-dotenv.config();
+import bot from "./src/bot";
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+console.log("🚀 Starting bot...");
 
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN!, { polling: true });
+bot
+  .launch()
+  .then(() => {
+    console.log("✅ Bot started successfully!");
+    console.log("💬 Waiting for messages...");
+    console.log("Press Ctrl+C to stop");
+  })
+  .catch((err) => {
+    console.error("❌ Failed to start bot:", err);
+    process.exit(1);
+  });
 
-function isAuthorized(chatId: string) {
-  return chatId.toString() === TELEGRAM_CHAT_ID;
-}
+// Enable graceful stop
+process.once("SIGINT", () => {
+  console.log("\n🛑 Stopping bot...");
+  bot.stop("SIGINT");
+});
 
-bot.onText(/^\/start$/, (msg) => {
-  const chatId = msg.chat.id.toString();
-
-  if (!isAuthorized(chatId)) {
-    return;
-  }
-
-  bot.sendMessage(chatId, "Hello, world!");
+process.once("SIGTERM", () => {
+  console.log("\n🛑 Stopping bot...");
+  bot.stop("SIGTERM");
 });
