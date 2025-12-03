@@ -1,0 +1,8 @@
+{
+  "123-456-789-000": {
+    "userId": 123456,
+    "sentenceId": "123e4567-e89b-12d3-a456-426614174000",
+    "userTranslation": "I like reading books in the evening.",
+    "createdAt": "2025-12-03T10:00:00Z"
+  }
+}

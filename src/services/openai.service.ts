@@ -1,6 +1,7 @@
+import { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses";
 import openaiClient from "../client/openai.client";
 
-const defaultTools = [
+const defaultTools: ResponseCreateParamsNonStreaming["tools"] = [
   {
     type: "function" as const,
     name: "get_daily_vocabulary",
@@ -24,11 +25,71 @@ const defaultTools = [
     },
     strict: true,
   },
+  {
+    type: "function" as const,
+    name: "generate_b1_sentence",
+    description:
+      "Generate a sentence in vietnamese that user will translate to english in future. The sentence should be a B1 level sentence.",
+    parameters: {
+      type: "object",
+      properties: {
+        sentence: { type: "string", description: "The vietnamese sentence" },
+      },
+      required: ["sentence"],
+      additionalProperties: false,
+    },
+    strict: true,
+  },
+  {
+    type: "function" as const,
+    name: "evaluate_translation",
+    description:
+      "Evaluate the user's English translation of the Vietnamese sentence. Provide feedback on accuracy, grammar, and suggest improvements if needed. Be encouraging and educational.",
+    parameters: {
+      type: "object",
+      properties: {
+        score: {
+          type: "number",
+          description: "The score of the translation out of 10",
+        },
+        suggested_translation: {
+          type: "string",
+          description:
+            "A correct/ideal English translation of the original sentence",
+        },
+        evaluation: {
+          type: "string",
+          description:
+            "Brief overall evaluation of the translation (1-2 sentences)",
+        },
+        feedback: {
+          type: "array",
+          description: "List of specific feedback points",
+          items: { type: "string" },
+        },
+        improvements: {
+          type: "array",
+          description: "List of specific improvement suggestions",
+          items: { type: "string" },
+        },
+      },
+      required: [
+        "score",
+        "suggested_translation",
+        "evaluation",
+        "feedback",
+        "improvements",
+      ],
+      additionalProperties: false,
+    },
+    strict: true,
+  },
 ];
 
-const defaultInputMessages = {
+const systemMessage = {
   role: "user" as const,
-  content: "Generate a daily vocabulary word above B2 level",
+  content:
+    "You are a helpful english teacher assistant. Generate a sentence in vietnamese that user will translate to english in future. The sentence should be a B1 level sentence.",
 };
 
 const generateText = async (prompt: string) => {
@@ -58,7 +119,7 @@ const getDailyVocabulary = async (): Promise<any> => {
   try {
     const response = await openaiClient.responses.create({
       model: "gpt-4o-mini",
-      input: [defaultInputMessages],
+      input: [systemMessage],
       tools: defaultTools,
     });
 
@@ -73,4 +134,55 @@ const getDailyVocabulary = async (): Promise<any> => {
   }
 };
 
-export { generateText, getRandomVocabulary, getDailyVocabulary };
+const generateWritingPrompt = async () => {
+  const response = await openaiClient.responses.create({
+    model: "gpt-4o-mini",
+    input: [systemMessage],
+    tools: defaultTools,
+  });
+
+  if (response.output[0].type !== "function_call") {
+    return null;
+  }
+
+  const sentence = JSON.parse(response.output[0].arguments).sentence;
+
+  return {
+    sentence,
+    prompt: `Generate a writing prompt for the following sentence: ${sentence}`,
+  };
+};
+
+const evaluateTranslation = async (sentence: string, translation: string) => {
+  const response = await openaiClient.responses.create({
+    model: "gpt-4o-mini",
+    input: [
+      {
+        role: "system" as const,
+        content:
+          "You are a helpful English teacher. Evaluate the user's English translation of the Vietnamese sentence. Provide feedback on accuracy, grammar, and suggest improvements if needed. Be encouraging and educational.",
+      },
+      {
+        role: "user" as const,
+        content: `Original Vietnamese sentence: "${sentence}"\n\nUser's English translation: "${translation}"\n\nPlease evaluate this translation.`,
+      },
+    ],
+    tools: defaultTools,
+  });
+
+  console.log(response.output[0]);
+
+  if (response.output[0].type !== "function_call") {
+    return null;
+  }
+
+  return JSON.parse(response.output[0].arguments);
+};
+
+export {
+  generateText,
+  getRandomVocabulary,
+  getDailyVocabulary,
+  generateWritingPrompt,
+  evaluateTranslation,
+};

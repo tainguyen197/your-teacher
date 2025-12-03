@@ -1,7 +1,4 @@
-import {
-  getDailyVocabulary,
-  getRandomVocabulary,
-} from "../../services/openai.service";
+import { getDailyVocabulary } from "../../services/openai.service";
 import { Telegraf } from "telegraf";
 
 export default function registerWordCommand(bot: Telegraf) {
