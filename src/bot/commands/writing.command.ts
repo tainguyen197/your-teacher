@@ -4,8 +4,9 @@ import {
   evaluateTranslation,
   generateWritingPrompt,
 } from "../../services/openai.service";
-
-let writingSentence = "";
+import { sentenceStore as sentenceStoreTemp } from "../../db/store_temp";
+import { dailyWritingJob } from "../../jobs/dailyWriting.job";
+import { generateComment } from "../../services/comment.service";
 
 export const registerWritingCommand = (bot: Telegraf) => {
   bot.command("writing", async (ctx) => {
@@ -15,16 +16,12 @@ export const registerWritingCommand = (bot: Telegraf) => {
       ctx.reply("No writing prompt found");
       return;
     }
-    const { sentence, prompt } = result;
+    const { sentence } = result;
 
-    writingSentence = sentence;
+    sentenceStoreTemp.sentence = sentence;
 
     await ctx.reply(
-      `📝 *Writing Exercise*
-      
-      Translate this sentence to English:
-      
-      _"${sentence}"_
+      `_"${sentence}"_
       
       Reply with your translation!`,
       { parse_mode: "Markdown" }
@@ -36,7 +33,10 @@ export const registerEvaluateTranslationCommand = (bot: Telegraf) => {
   bot.on(message("text"), async (ctx) => {
     const translate = ctx.message.text;
 
-    const result = await evaluateTranslation(writingSentence, translate);
+    const result = await evaluateTranslation(
+      sentenceStoreTemp.sentence,
+      translate
+    );
 
     if (!result) {
       ctx.reply("No evaluation found");
@@ -85,5 +85,22 @@ ${improvementsList}
 _"${suggested_translation}"_
 `;
     ctx.reply(response, { parse_mode: "Markdown" });
+
+    setTimeout(async () => {
+      if (score < 8) {
+        const comment = await generateComment("Not good enough, try again!");
+        if (comment) {
+          await ctx.reply(comment, { parse_mode: "Markdown" });
+        }
+      } else {
+        const comment = await generateComment(
+          "Good job!, next sentence will be sent to you soon!"
+        );
+        if (comment) {
+          await ctx.reply(comment, { parse_mode: "Markdown" });
+        }
+      }
+      await dailyWritingJob(bot);
+    }, 10 * 1000); // 10 seconds
   });
 };
